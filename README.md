@@ -125,17 +125,6 @@ CREATE OR REPLACE TABLE MY_DEMOS_DB.SBB_HACKATHON.UMFRAGE_WERBEKAMPAGNE (
    - `Ergebnisbericht_Bahn_KUZU_2023_Kanton_Solothurn.pdf`
    - `Mobilfunknetztest+DACH+connect+2026-01+fin+gesamt.pdf`
 
-#### Option B: Using SnowSQL
-```bash
-export SNOWSQL_PRIVATE_KEY_PASSPHRASE="[your passphrase from ~/.snowsql/config]"
-snowsql -d MY_DEMOS_DB -s SBB_HACKATHON
-
--- In SnowSQL:
-PUT file://./documents/*.pdf @MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS AUTO_COMPRESS=FALSE;
-```
-
-**Verify**: Run `LIST @MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS;` to see both PDF files.
-
 ---
 
 ### Step 5: Create MOBILITAETSVERHALTEN Table from CSV
