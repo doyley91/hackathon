@@ -49,7 +49,45 @@ CREATE STAGE IF NOT EXISTS MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS
 
 ---
 
-### Step 2: Create and Populate UMFRAGE_WERBEKAMPAGNE Table
+### Step 2: Create Snowflake Intelligence Object
+
+Create the Snowflake Intelligence object and grant necessary permissions to enable Cortex Agents, Cortex Search, and Cortex Analyst.
+
+```sql
+USE ROLE ACCOUNTADMIN;
+
+-- Create the Snowflake Intelligence object
+CREATE SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT;
+
+-- Grant permissions to a role (replace <role_name> with your role, e.g., ACCOUNTADMIN or a custom role)
+GRANT CREATE SNOWFLAKE INTELLIGENCE ON ACCOUNT TO ROLE ACCOUNTADMIN;
+GRANT USAGE ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE ACCOUNTADMIN;
+GRANT MODIFY ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE ACCOUNTADMIN;
+
+-- Grant public access for read-only operations
+GRANT USAGE ON SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT TO ROLE PUBLIC;
+
+-- Verify the Snowflake Intelligence object was created
+SHOW SNOWFLAKE INTELLIGENCES;
+```
+
+**Note**: After creating your Cortex Agent in Step 9, you can manage it using these commands:
+
+```sql
+-- Add an agent to the Snowflake Intelligence object
+ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT 
+ADD AGENT MY_DEMOS_DB.SBB_HACKATHON.SBB_HACKATHON_AGENT;
+
+-- Remove an agent from the Snowflake Intelligence object (if needed)
+ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT 
+DROP AGENT MY_DEMOS_DB.SBB_HACKATHON.SBB_HACKATHON_AGENT;
+```
+
+**Verify**: Run `SHOW SNOWFLAKE INTELLIGENCES;` to confirm the object was created successfully.
+
+---
+
+### Step 3: Create and Populate UMFRAGE_WERBEKAMPAGNE Table
 
 Continue with the setup script to create the survey table and insert dummy data:
 
@@ -75,7 +113,7 @@ CREATE OR REPLACE TABLE MY_DEMOS_DB.SBB_HACKATHON.UMFRAGE_WERBEKAMPAGNE (
 
 ---
 
-### Step 3: Upload PDF Documents to Stage
+### Step 4: Upload PDF Documents to Stage
 
 **Manual Step**: Upload the PDF files from the `documents/` folder to the DOCUMENTS stage.
 
@@ -100,7 +138,7 @@ PUT file://./documents/*.pdf @MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS AUTO_COMPRESS=
 
 ---
 
-### Step 4: Create MOBILITAETSVERHALTEN Table from CSV
+### Step 5: Create MOBILITAETSVERHALTEN Table from CSV
 
 **Manual Step**: Create the table by importing the CSV file.
 
@@ -112,33 +150,12 @@ PUT file://./documents/*.pdf @MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS AUTO_COMPRESS=
 5. Review the auto-detected schema and adjust if needed
 6. Click **Create Table**
 
-#### Using SnowSQL
-```bash
-# First, create a temporary stage and upload the CSV
-snowsql -d MY_DEMOS_DB -s SBB_HACKATHON
-
--- In SnowSQL:
-CREATE OR REPLACE STAGE MY_DEMOS_DB.SBB_HACKATHON.TEMP_CSV_STAGE;
-PUT file://./data/ts-x-11.04.03-MZ-2021-T01.csv @TEMP_CSV_STAGE;
-
--- Create table and load data (adjust column definitions based on CSV structure)
-CREATE OR REPLACE TABLE MY_DEMOS_DB.SBB_HACKATHON.MOBILITAETSVERHALTEN (
-    -- Define columns based on CSV structure
-    -- Example structure (adjust as needed):
-    TRAVEL_REASON VARCHAR,
-    -- ... add other columns from the CSV
-);
-
-COPY INTO MY_DEMOS_DB.SBB_HACKATHON.MOBILITAETSVERHALTEN
-FROM @TEMP_CSV_STAGE/ts-x-11.04.03-MZ-2021-T01.csv
-FILE_FORMAT = (TYPE = CSV SKIP_HEADER = 1);
-```
 
 **Verify**: Run `SELECT COUNT(*) FROM MY_DEMOS_DB.SBB_HACKATHON.MOBILITAETSVERHALTEN;` to confirm data was loaded.
 
 ---
 
-### Step 5: Parse PDF Documents and Create Text Chunks
+### Step 6: Parse PDF Documents and Create Text Chunks
 
 The setup script includes a stored procedure to process PDFs, extract text, and create chunks for RAG applications.
 
@@ -169,7 +186,7 @@ SELECT DISTINCT DOCUMENT_NAME FROM MY_DEMOS_DB.SBB_HACKATHON.DOCUMENT_CHUNKS;
 
 ---
 
-### Step 6: Create Cortex Search Service
+### Step 7: Create Cortex Search Service
 
 **Manual Step**: Create a Cortex Search Service to enable semantic search over the document chunks.
 
@@ -216,7 +233,7 @@ SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
 
 ---
 
-### Step 7: Create Semantic View with Context
+### Step 8: Create Semantic View with Context
 
 **Manual Step**: Create a semantic view for the MOBILITAETSVERHALTEN table using Cortex Analyst.
 
@@ -251,7 +268,7 @@ columns:
 
 ---
 
-### Step 8: Create Cortex Agent
+### Step 9: Create Cortex Agent
 
 **Manual Step**: Create a Cortex Agent that combines the Cortex Search Service (for document RAG) and Cortex Analyst (for data analysis).
 
@@ -264,7 +281,7 @@ columns:
    - **Schema**: `SBB_HACKATHON`
    - **Tools**:
      - Add **Cortex Search Service**: Select `DOCUMENT_SEARCH_SERVICE`
-     - Add **Cortex Analyst**: Select the semantic view created in Step 7
+     - Add **Cortex Analyst**: Select the semantic view created in Step 8
    - **System Prompt**: Define how the agent should behave
      ```
      You are an assistant for SBB transportation analysis. You can:
@@ -316,45 +333,3 @@ FROM MY_DEMOS_DB.SBB_HACKATHON.UMFRAGE_WERBEKAMPAGNE
 GROUP BY werbekampagne_name
 ORDER BY avg_rating DESC;
 ```
-
----
-
-## Troubleshooting
-
-### Issue: PDFs not parsing
-- Ensure PDFs are uploaded without compression: `AUTO_COMPRESS=FALSE`
-- Verify stage path: `LIST @MY_DEMOS_DB.SBB_HACKATHON.DOCUMENTS;`
-
-### Issue: Cortex Search Service not finding results
-- Wait for initial indexing to complete (check TARGET_LAG)
-- Verify chunks contain meaningful content (not just headers/footers)
-
-### Issue: Cortex Analyst not understanding queries
-- Review semantic model definitions
-- Add more synonyms and context descriptions
-- Check that column names match between base table and semantic view
-
-### Issue: CSV import fails
-- Check CSV encoding (should be UTF-8)
-- Verify delimiter and quote characters
-- Review column data types for compatibility
-
----
-
-## Additional Resources
-
-- [Snowflake Cortex Search Documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search)
-- [Snowflake Cortex Analyst Documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)
-- [Document AI Functions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/document-ai)
-
----
-
-## Project Summary
-
-This hackathon project demonstrates:
-- **Document Processing**: PDF parsing and chunking for RAG applications
-- **Data Analysis**: Mobility behavior analysis with semantic understanding
-- **AI Integration**: Combining search and analytics in a unified agent
-- **Survey Analysis**: Understanding advertising campaign effectiveness
-
-The setup creates a comprehensive environment for exploring transportation data and documents using Snowflake's Cortex AI capabilities.
