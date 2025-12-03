@@ -182,4 +182,6 @@ SELECT * FROM MY_DEMOS_DB.SBB_HACKATHON.DOCUMENT_CHUNKS;
 
 SELECT COUNT(TRAVEL_REASON) FROM MOBILITAETSVERHALTEN WHERE TRAVEL_REASON = 'WORK';
 
--- create cortex search
+-- Create Cortex Search
+
+-- Create Cortex Analyst, use appendix xlsl file for metadata
